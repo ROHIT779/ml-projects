@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from .routers import model
+from routers import model
 
 service=FastAPI()
 
