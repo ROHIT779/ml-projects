@@ -20,6 +20,7 @@ class PredictionModel:
     __logger = logging.getLogger('uvicorn.error')
 
     def read_verify(self) -> DataFrame | None:
+        PredictionModel.__logger.info("Reading data")
         data = pd.read_csv("SeoulBikeData.csv")
         # with open("debug.txt","w") as file:
         #     file.write(data.head(5).to_csv())
@@ -29,6 +30,7 @@ class PredictionModel:
         return data
 
     def preprocess_data(self,data: DataFrame) -> DataFrame | None:
+        PredictionModel.__logger.info("Preprocessing data")
         data["Date"] = pd.to_datetime(data["Date"], format="%d/%m/%Y")
         data["Date"] = data["Date"] + pd.to_timedelta(data["Hour"], unit="h")
         data = data.set_index(data["Date"])
@@ -52,6 +54,7 @@ class PredictionModel:
         return data
 
     def adf_test(self,data: DataFrame) -> None:
+        PredictionModel.__logger.info("ADF Test")
         data["first_diff"] = data["target"].diff()
         adf_test = adfuller(data["first_diff"][1:])
         p_value=adf_test[1]
@@ -59,6 +62,7 @@ class PredictionModel:
             raise Exception("First difference is not stationary")
 
     def scale_columns(self,data: DataFrame):
+        PredictionModel.__logger.info("Scaling columns")
         scaling_columns = self.get_exog_columns()
         scaler = MinMaxScaler()
         data[scaling_columns] = scaler.fit_transform(data[scaling_columns])
@@ -67,17 +71,20 @@ class PredictionModel:
         return data
 
     def get_arima_orders(self):
+        PredictionModel.__logger.info("Get ARIMA orders")
         non_seasonal_orders = (1, 1, 0)
         seasonal_orders = (1, 0, 0, 24)
         return non_seasonal_orders,seasonal_orders
 
     def get_exog_columns(self):
+        PredictionModel.__logger.info("Get Exogenous columns")
         exog_columns_subset = ['temp', 'hum', 'vis', 'func']
         with open('exog_cols.pkl','wb') as file:
             pickle.dump(exog_columns_subset,file)
         return exog_columns_subset
 
     def train_arima(self,data: DataFrame,non_seasonal_orders,seasonal_orders,exog_columns):
+        PredictionModel.__logger.info("Training ARIMA")
         ts_model_sarimax = SARIMAX(data["target"], order=non_seasonal_orders,
                                                      seasonal_order=seasonal_orders,
                                                      exog=data[exog_columns])
@@ -89,6 +96,7 @@ class PredictionModel:
         return model_fit
 
     async def forecast(self,number_of_periods,input_data):
+        PredictionModel.__logger.info("Forecasting with parameters: "+str({'periods':number_of_periods,'input':input_data}))
         with open('last_index.pkl','rb') as file:
             last_index=pickle.load(file)
         with open('exog_cols.pkl','rb') as file:
@@ -97,12 +105,7 @@ class PredictionModel:
             scaler=pickle.load(file)
         with open('bike_rental_demand_prediction_model.pkl','rb') as file:
             model=pickle.load(file)
-        PredictionModel.__logger.info("Printing last index using logger")
-        PredictionModel.__logger.info(last_index)
         future_indices=pd.date_range(start=last_index+timedelta(hours=1),periods=number_of_periods,freq='h')
-        PredictionModel.__logger.info("logging input data and future indices")
-        PredictionModel.__logger.info(input_data)
-        PredictionModel.__logger.info(future_indices)
 
         input_data_df=pd.DataFrame(data=input_data,index=future_indices)
         input_data_df=pd.DataFrame(data=scaler.transform(input_data_df[exog_columns]),columns=exog_columns,index=future_indices)
@@ -114,7 +117,6 @@ class PredictionModel:
 
         lower_limits=predicted_confidence_intervals['lower target'].tolist()
         upper_limits=predicted_confidence_intervals['upper target'].tolist()
-        PredictionModel.__logger.info(lower_limits)
         data=[[predicted_mean[i],lower_limits[i],upper_limits[i]] for i in range(len(predicted_mean))]
         response=pd.DataFrame(data=data,columns=['Value','Lower Limit','Upper Limit'],index=indices)
         return response
@@ -123,14 +125,13 @@ class PredictionModel:
         PredictionModel.__model=self.pipeline()
 
     def pipeline(self):
+        PredictionModel.__logger.info("Training Pipeline Started")
         data=self.read_verify()
         data=self.preprocess_data(data)
         self.adf_test(data)
         data=self.scale_columns(data)
         with open('data.pkl','wb') as file:
             pickle.dump(data,file)
-        PredictionModel.__logger.info("Printing last index in pipeline")
-        PredictionModel.__logger.info(data.index[-1])
         with open('last_index.pkl','wb') as file:
             pickle.dump(data.index[-1],file)
         non_seasonal_orders,seasonal_orders=self.get_arima_orders()
