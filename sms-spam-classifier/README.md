@@ -30,3 +30,7 @@ The Dataset contains 2 columns *'Message'* and *'Label'*
 9. A neural network classifier is trained using the features and target.  
 10. Predictions are made of test data and metrics are calculated.
 11. Predictions are made for new unseen message.
+
+## Result
+1. Plotted Precision-Recall curve on test dataset
+![Precision-Recall Curve](./static/precision-recall-curve.png)
