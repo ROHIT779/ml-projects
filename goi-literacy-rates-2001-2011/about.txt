@@ -1,0 +1,2 @@
+source=https://www.kaggle.com/datasets/doncorleone92/govt-of-india-literacy-rate
+indian-states-file-source=https://www.kaggle.com/code/nehaprabhavalkar/how-to-plot-map-of-india-using-python
